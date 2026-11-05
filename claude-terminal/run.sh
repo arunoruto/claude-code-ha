@@ -492,9 +492,10 @@ setup_herdr() {
         else
             bashio::log.warning "herdr integration install claude failed: ${output}"
         fi
-        # A saved layout means herdr resumes its Claude sessions itself; a
-        # fresh Claude in the first pane would swallow herdr's resume command
-        if [ -s "$herdr_dir/session.json" ]; then
+        # A saved pane with an agent session means herdr resumes it itself; a
+        # fresh Claude in the first pane would swallow herdr's resume command.
+        # herdr writes these keys only for panes it can resume.
+        if grep -qE '"agent_(session|resume)"' "$herdr_dir/session.json" 2> /dev/null; then
             export HERDR_SKIP_LAUNCH=1
             bashio::log.info "herdr restores the saved layout and resumes its Claude sessions"
         fi

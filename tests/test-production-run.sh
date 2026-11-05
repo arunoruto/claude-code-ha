@@ -90,10 +90,16 @@ grep -qx 'integration install claude' "$herdr_calls" || fail "herdr's Claude Cod
 [ -z "${HERDR_SKIP_LAUNCH:-}" ] || fail "with no saved layout the first herdr pane must launch Claude"
 grep -q 'resume_agents_on_restore' "$HERDR_CONFIG_PATH" && fail "resume must stay on: the integration option decides it"
 
-# A saved layout: herdr resumes its Claude sessions, so no fresh launch
-echo '{}' > "$tmp_dir/herdr/session.json"
+# A saved layout with nothing to resume (e.g. saved before the integration)
+# still gets a fresh Claude
+echo '{"workspaces":[{"panes":[{"cwd":"/config"}]}]}' > "$tmp_dir/herdr/session.json"
 setup_herdr
-[ "${HERDR_SKIP_LAUNCH:-}" = 1 ] || fail "a saved herdr layout must leave resuming Claude to herdr"
+[ -z "${HERDR_SKIP_LAUNCH:-}" ] || fail "a saved layout without agent sessions must still launch Claude"
+
+# A saved agent session: herdr resumes it, so no fresh launch
+echo '{"workspaces":[{"panes":[{"cwd":"/config","agent_session":{"agent":"claude","value":"abc"}}]}]}' > "$tmp_dir/herdr/session.json"
+setup_herdr
+[ "${HERDR_SKIP_LAUNCH:-}" = 1 ] || fail "a saved agent session must leave resuming Claude to herdr"
 [ -z "$(env HERDR_SKIP_LAUNCH=1 HERDR_FIRST_PANE_LOCK="$tmp_dir/skip-lock" CLAUDE_LAUNCH_CMD='echo launched; exit 0' \
     bash "$HERDR_SHELL_PATH" < /dev/null)" ] || fail "HERDR_SKIP_LAUNCH must keep the first pane from launching Claude"
 
