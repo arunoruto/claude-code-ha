@@ -88,7 +88,8 @@ The add-on offers several configuration options:
 - **Default**: `tmux`
 - `herdr` swaps tmux for [herdr](https://herdr.dev): tabs, panes and workspaces you drive with the mouse (click to focus, drag borders, right-click menus), and a status dot on every pane running Claude (working, waiting for you, done)
 - The first pane runs Claude (or the session picker), like tmux's session; new tabs and panes open bash. Run `claude` in one for another agent
-- herdr keeps its layout in `/data`, so tabs and panes come back after a restart (as new shells; Claude starts again in the first one)
+- herdr keeps its layout in `/data`, so tabs and panes come back after a restart
+- **herdr Claude Code integration** (`herdr_claude_integration`, default on) runs `herdr integration install claude` on every start: a `SessionStart` hook in `~/.claude/settings.json` that tells herdr which conversation runs in which pane. After a restart herdr resumes them with `claude --resume`, and the add-on doesn't start an extra Claude. Resumed sessions don't get the add-on's Claude flags (`dangerously_skip_permissions`, `enable_remote_control`, `claude_extra_args`). Turned off, the hook is removed again and Claude starts fresh in the first pane after a restart
 - `/data/.config/herdr/config.toml` is written on the first start and then left alone, so your edits stay. Delete it and restart for the add-on's defaults. **tmux Mouse Mode** doesn't apply: herdr always handles the mouse, and drag-selecting copies
 - The prefix is `Ctrl+B`, as in tmux: `Ctrl+B q` detaches. Browser shortcuts (`Ctrl+W`, `Ctrl+T`) still belong to the browser
 

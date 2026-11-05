@@ -82,6 +82,28 @@ grep -qx 'set -g focus-events on' "$HOME/.tmux.conf" || \
 # the launch command in the first pane only, in CLAUDE_WORKDIR
 HERDR_CONFIG_PATH="$tmp_dir/herdr/config.toml"
 HERDR_SHELL_PATH="$tmp_dir/herdr-claude-shell"
+XDG_CONFIG_HOME="$tmp_dir"
+herdr_calls="$tmp_dir/herdr-calls"
+herdr() { echo "$*" >> "$herdr_calls"; }
+setup_herdr
+grep -qx 'integration install claude' "$herdr_calls" || fail "herdr's Claude Code integration should be installed by default"
+[ -z "${HERDR_SKIP_LAUNCH:-}" ] || fail "with no saved layout the first herdr pane must launch Claude"
+grep -q 'resume_agents_on_restore' "$HERDR_CONFIG_PATH" && fail "resume must stay on: the integration option decides it"
+
+# A saved layout: herdr resumes its Claude sessions, so no fresh launch
+echo '{}' > "$tmp_dir/herdr/session.json"
+setup_herdr
+[ "${HERDR_SKIP_LAUNCH:-}" = 1 ] || fail "a saved herdr layout must leave resuming Claude to herdr"
+[ -z "$(env HERDR_SKIP_LAUNCH=1 HERDR_FIRST_PANE_LOCK="$tmp_dir/skip-lock" CLAUDE_LAUNCH_CMD='echo launched; exit 0' \
+    bash "$HERDR_SHELL_PATH" < /dev/null)" ] || fail "HERDR_SKIP_LAUNCH must keep the first pane from launching Claude"
+
+# Integration off: nothing installed, an existing hook removed, Claude launches again
+: > "$herdr_calls"
+mkdir -p "$HOME/.claude/hooks" && touch "$HOME/.claude/hooks/herdr-agent-state.sh"
+( bashio::config() { [ "$1" = herdr_claude_integration ] && echo false || printf '%s\n' "${2:-}"; }
+  setup_herdr; [ -z "${HERDR_SKIP_LAUNCH:-}" ] ) || fail "integration off must launch Claude in the first pane"
+[ "$(cat "$herdr_calls")" = 'integration uninstall claude' ] || fail "integration off must only uninstall the hook: $(cat "$herdr_calls")"
+rm -f "$tmp_dir/herdr/session.json"
 setup_herdr
 grep -qx "default_shell = \"$HERDR_SHELL_PATH\"" "$HERDR_CONFIG_PATH" || fail "herdr panes must start the add-on's launcher"
 grep -qx 'kitty_graphics = false' "$HERDR_CONFIG_PATH" || fail "herdr must not send Kitty graphics to the browser terminal"

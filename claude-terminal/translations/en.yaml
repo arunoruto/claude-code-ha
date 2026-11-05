@@ -18,6 +18,11 @@ configuration:
     description: >-
       tmux, or herdr: mouse-first tabs and panes that show which Claude is
       working, waiting or done. tmux mouse mode applies to tmux only.
+  herdr_claude_integration:
+    name: herdr Claude Code integration
+    description: >-
+      herdr only. Installs herdr's Claude Code hook, so after a restart herdr
+      brings back your tabs with the same Claude conversations resumed.
   working_directory:
     name: Working directory
     description: >-

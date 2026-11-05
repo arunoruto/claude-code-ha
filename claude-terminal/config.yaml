@@ -40,6 +40,7 @@ options:
   auto_launch_claude: true
   tmux_mouse: false
   multiplexer: tmux
+  herdr_claude_integration: true
   working_directory: ""
   claude_code_oauth_token: ""
   dangerously_skip_permissions: false
@@ -59,6 +60,7 @@ schema:
   auto_launch_claude: bool?
   tmux_mouse: bool?
   multiplexer: list(tmux|herdr)?
+  herdr_claude_integration: bool?
   working_directory: str?
   claude_code_oauth_token: password?
   dangerously_skip_permissions: bool?

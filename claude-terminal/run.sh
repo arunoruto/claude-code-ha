@@ -472,17 +472,45 @@ get_multiplexer() {
 # plain `herdr`, which starts its server on the first connection.
 setup_herdr() {
     local herdr_shell="${HERDR_SHELL_PATH:-/usr/local/bin/herdr-claude-shell}"
-    export HERDR_CONFIG_PATH="${HERDR_CONFIG_PATH:-/data/.config/herdr/config.toml}"
+    # herdr keeps its session state (session.json, sockets) here, in /data
+    local herdr_dir="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+    local integration output
+    export HERDR_CONFIG_PATH="${HERDR_CONFIG_PATH:-$herdr_dir/config.toml}"
 
     bashio::log.info "Setting up herdr..."
+
+    # The Claude Code integration is a SessionStart hook in ~/.claude that tells
+    # herdr which conversation runs in which pane, so a restart resumes them
+    # (herdr types `claude --resume <id>` into the restored pane's shell).
+    # Reinstalled on every start: herdr's docs ask for that after an upgrade.
+    integration=$(bashio::config 'herdr_claude_integration' 'true') || integration='true'
+    unset HERDR_SKIP_LAUNCH
+    if [ "$integration" != "false" ]; then
+        mkdir -p "$HOME/.claude"
+        if output=$(herdr integration install claude 2>&1); then
+            bashio::log.info "herdr Claude Code integration installed"
+        else
+            bashio::log.warning "herdr integration install claude failed: ${output}"
+        fi
+        # A saved layout means herdr resumes its Claude sessions itself; a
+        # fresh Claude in the first pane would swallow herdr's resume command
+        if [ -s "$herdr_dir/session.json" ]; then
+            export HERDR_SKIP_LAUNCH=1
+            bashio::log.info "herdr restores the saved layout and resumes its Claude sessions"
+        fi
+    elif [ -f "$HOME/.claude/hooks/herdr-agent-state.sh" ]; then
+        herdr integration uninstall claude > /dev/null 2>&1 || \
+            bashio::log.warning "herdr integration uninstall claude failed"
+    fi
 
     # herdr starts this in every pane. The first pane since the container
     # started runs the launch command, like tmux's 'claude' session; the rest,
     # and the first once that command exits, get bash. /tmp is per container,
-    # so a restart (which restores herdr's layout from /data) starts Claude again.
+    # so a restart (which restores herdr's layout from /data) starts Claude
+    # again, unless herdr resumes the saved sessions (HERDR_SKIP_LAUNCH).
     cat > "$herdr_shell" << 'SHELL_EOF'
 #!/bin/bash
-if mkdir "${HERDR_FIRST_PANE_LOCK:-/tmp/herdr-first-pane}" 2>/dev/null; then
+if [ -z "${HERDR_SKIP_LAUNCH:-}" ] && mkdir "${HERDR_FIRST_PANE_LOCK:-/tmp/herdr-first-pane}" 2>/dev/null; then
     # The login URL watcher reads this pane
     printf '%s\n' "${HERDR_PANE_ID:-}" > "${HERDR_CLAUDE_PANE_FILE:-/tmp/herdr-claude-pane}"
     cd "${CLAUDE_WORKDIR:-/config}" || true
@@ -508,10 +536,6 @@ default_shell = "${herdr_shell}"
 shell_mode = "non_login"
 # The browser terminal can't draw Kitty graphics; apps fall back to text
 kitty_graphics = false
-
-[session]
-# The first pane already starts Claude after a restart; resuming would add a second
-resume_agents_on_restore = false
 
 [update]
 # herdr is updated with the add-on

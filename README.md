@@ -94,6 +94,7 @@ Claude's login link also shows up as a Home Assistant notification (and in the C
 | `dangerously_skip_permissions` | `false` | Let Claude run tools without asking. Read [Security](#security) first |
 | `tmux_mouse` | `false` | tmux mouse mode. Keep it off for native browser copy and paste |
 | `multiplexer` | `tmux` | `tmux`, or `herdr` for mouse-first tabs and panes with per-agent status |
+| `herdr_claude_integration` | `true` | herdr only: resume the same Claude conversations in their panes after a restart |
 | `persistent_apk_packages` | `[]` | Alpine packages installed on every start |
 | `persistent_pip_packages` | `[]` | Python packages installed on every start |
 | `init_commands` | `[]` | Shell commands run on every start, after packages (120 s each) |
