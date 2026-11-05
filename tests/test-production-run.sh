@@ -73,6 +73,32 @@ grep -qx "set -as terminal-features ',\*:clipboard'" "$HOME/.tmux.conf" || \
 grep -qx 'set -g focus-events on' "$HOME/.tmux.conf" || \
     fail "tmux must pass focus events through to Claude Code"
 
+# multiplexer: tmux unless the option says herdr, also when it can't be read
+[ "$(get_multiplexer)" = "tmux" ] || fail "multiplexer should default to tmux"
+[ "$( bashio::config() { echo herdr; }; get_multiplexer)" = "herdr" ] || fail "multiplexer: herdr should pick herdr"
+[ "$( bashio::config() { return 1; }; get_multiplexer)" = "tmux" ] || fail "an unreadable multiplexer option should fall back to tmux"
+
+# herdr: config written once (user edits survive), and the pane launcher runs
+# the launch command in the first pane only, in CLAUDE_WORKDIR
+HERDR_CONFIG_PATH="$tmp_dir/herdr/config.toml"
+HERDR_SHELL_PATH="$tmp_dir/herdr-claude-shell"
+setup_herdr
+grep -qx "default_shell = \"$HERDR_SHELL_PATH\"" "$HERDR_CONFIG_PATH" || fail "herdr panes must start the add-on's launcher"
+grep -qx 'kitty_graphics = false' "$HERDR_CONFIG_PATH" || fail "herdr must not send Kitty graphics to the browser terminal"
+grep -qx 'onboarding = false' "$HERDR_CONFIG_PATH" || fail "herdr's first-run setup must be skipped"
+echo '# mine' >> "$HERDR_CONFIG_PATH"
+setup_herdr
+grep -qx '# mine' "$HERDR_CONFIG_PATH" || fail "setup_herdr must keep an existing config"
+
+mkdir -p "$tmp_dir/workdir"
+launcher_env=(HERDR_FIRST_PANE_LOCK="$tmp_dir/first-pane" HERDR_CLAUDE_PANE_FILE="$tmp_dir/pane-id"
+    HERDR_PANE_ID=p_1 CLAUDE_WORKDIR="$tmp_dir/workdir" CLAUDE_LAUNCH_CMD='echo "launched in $PWD"; exit 0')
+[ "$(env "${launcher_env[@]}" bash "$HERDR_SHELL_PATH" < /dev/null)" = "launched in $tmp_dir/workdir" ] || \
+    fail "the first herdr pane must run the launch command in CLAUDE_WORKDIR"
+[ "$(cat "$tmp_dir/pane-id")" = "p_1" ] || fail "the first herdr pane must record its ID for the login watcher"
+[ -z "$(env "${launcher_env[@]}" bash "$HERDR_SHELL_PATH" < /dev/null)" ] || \
+    fail "later herdr panes must open bash, not another launch"
+
 # The frontend fix has to be reachable from the page that embeds ttyd.
 clipboard_bridge="$repo_root/claude-terminal/image-service/public/terminal-clipboard.js"
 terminal_page="$repo_root/claude-terminal/image-service/public/index.html"

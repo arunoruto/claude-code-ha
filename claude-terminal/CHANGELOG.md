@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0
+
+### ✨ New Feature - herdr as an Alternative to tmux
+- **New option `multiplexer`: `tmux` (default) or `herdr`.** [herdr](https://herdr.dev) is a terminal multiplexer built for coding agents: tabs, panes and workspaces you drive with the mouse, which suits the browser better than tmux's keyboard prefix, and a status dot on every pane running Claude, so with several agents open you see which one is waiting for you
+- The first pane runs Claude or the session picker, exactly like the tmux session; other tabs and panes open bash
+- herdr's layout lives in `/data` and comes back after a restart. Its settings are in `/data/.config/herdr/config.toml`, written once and then left to you
+- The login link notification works with both
+- herdr 0.9.5 is a static binary added to the image (~29 MB); nothing changes for tmux users
+
 ## 2.5.2
 
 ### 🔧 Improvement - Dashboard Findings Say Where They Are

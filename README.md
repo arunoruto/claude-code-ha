@@ -93,6 +93,7 @@ Claude's login link also shows up as a Home Assistant notification (and in the C
 | `claude_extra_args` | empty | Extra flags for every launch, e.g. `--model claude-sonnet-5-5` (quoting works) |
 | `dangerously_skip_permissions` | `false` | Let Claude run tools without asking. Read [Security](#security) first |
 | `tmux_mouse` | `false` | tmux mouse mode. Keep it off for native browser copy and paste |
+| `multiplexer` | `tmux` | `tmux`, or `herdr` for mouse-first tabs and panes with per-agent status |
 | `persistent_apk_packages` | `[]` | Alpine packages installed on every start |
 | `persistent_pip_packages` | `[]` | Python packages installed on every start |
 | `init_commands` | `[]` | Shell commands run on every start, after packages (120 s each) |

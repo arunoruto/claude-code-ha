@@ -131,6 +131,21 @@ RUN ADDON_ARCH=$(cat /etc/addon-arch); \
     rm -rf /tmp/gh* && \
     echo "GitHub CLI v${GH_VERSION} installed successfully"
 
+# herdr, the optional mouse-first tmux alternative (option multiplexer: herdr).
+# Its Linux release binaries are static, so they run on Alpine as they are.
+# AGPL-3.0, shipped unmodified; source at https://github.com/herdrdev/herdr
+ARG HERDR_VERSION=v0.9.5
+RUN ADDON_ARCH=$(cat /etc/addon-arch); \
+    case "${ADDON_ARCH}" in \
+        amd64)   HERDR_ARCH="x86_64" ;; \
+        aarch64) HERDR_ARCH="aarch64" ;; \
+        *)       echo "Unsupported architecture for herdr: ${ADDON_ARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL -o /usr/local/bin/herdr \
+        "https://github.com/herdrdev/herdr/releases/download/${HERDR_VERSION}/herdr-linux-${HERDR_ARCH}" && \
+    chmod +x /usr/local/bin/herdr && \
+    /usr/local/bin/herdr --version
+
 # Home Assistant plugin for Claude Code (current HA syntax, YAML checks after
 # every edit). Pinned to a release tag of ESJavadex/claude-homeassistant-plugins
 # and installed from this local copy on first start (setup_ha_plugin in run.sh),

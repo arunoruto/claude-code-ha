@@ -16,6 +16,24 @@
 NOTIFICATION_ID="claude_login_url"
 POLL_INTERVAL="${LOGIN_WATCHER_POLL_INTERVAL:-3}"
 SUPERVISOR_URL="${LOGIN_WATCHER_SUPERVISOR_URL:-http://supervisor}"
+# multiplexer: herdr - herdr-claude-shell records the pane Claude starts in here
+HERDR_CLAUDE_PANE_FILE="${HERDR_CLAUDE_PANE_FILE:-/tmp/herdr-claude-pane}"
+
+session_up() {
+    if [ "${MULTIPLEXER:-tmux}" = "herdr" ]; then
+        [ -s "$HERDR_CLAUDE_PANE_FILE" ]
+    else
+        tmux has-session -t claude 2>/dev/null
+    fi
+}
+
+capture_pane() {
+    if [ "${MULTIPLEXER:-tmux}" = "herdr" ]; then
+        herdr pane read "$(cat "$HERDR_CLAUDE_PANE_FILE")" --source recent-unwrapped --lines 500 2>/dev/null
+    else
+        tmux capture-pane -p -J -t claude -S -500 2>/dev/null
+    fi
+}
 
 # Rebuild the URL from the pane. Claude hard-wraps it with real line breaks
 # (which capture-pane -J does not rejoin) and may indent it or draw a border
@@ -23,7 +41,7 @@ SUPERVISOR_URL="${LOGIN_WATCHER_SUPERVISOR_URL:-http://supervisor}"
 # following line until a blank one. Only the OAuth authorize link counts:
 # Remote Control session links and doc links are also claude.ai URLs.
 extract_url() {
-    tmux capture-pane -p -J -t claude -S -500 2>/dev/null | awk '
+    capture_pane | awk '
         $0 ~ /https:\/\/(claude\.(com|ai)|console\.anthropic\.com|platform\.claude\.com)\/[^ ]*oauth\/authorize/ {
             match($0, /https:\/\/[A-Za-z0-9._~:\/?#@!$&()*+,;=%-]*/)
             url = substr($0, RSTART, RLENGTH)
@@ -83,7 +101,7 @@ main() {
     # prints a new URL (fresh state), so it is still posted.
     local posted=" " notified=0 url
     while true; do
-        if tmux has-session -t claude 2>/dev/null; then
+        if session_up; then
             if is_logged_in; then
                 if [ "$notified" = "1" ]; then
                     dismiss

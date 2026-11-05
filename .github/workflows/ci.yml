@@ -143,6 +143,7 @@ jobs:
             gh --version
             ttyd --version
             tmux -V
+            herdr --version
             bash -n /run.sh /opt/scripts/*.sh
           '
         env:

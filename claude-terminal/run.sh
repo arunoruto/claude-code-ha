@@ -458,6 +458,74 @@ WRAPPER_EOF
     bashio::log.info "tmux configured (${tmux_conf})"
 }
 
+# tmux (default) or herdr, from the 'multiplexer' option
+get_multiplexer() {
+    local multiplexer
+    multiplexer=$(bashio::config 'multiplexer' 'tmux') || multiplexer='tmux'
+    case "${multiplexer}" in
+        herdr) echo "herdr" ;;
+        *) echo "tmux" ;;
+    esac
+}
+
+# Setup herdr (multiplexer: herdr), a mouse-first tmux alternative. ttyd runs
+# plain `herdr`, which starts its server on the first connection.
+setup_herdr() {
+    local herdr_shell="${HERDR_SHELL_PATH:-/usr/local/bin/herdr-claude-shell}"
+    export HERDR_CONFIG_PATH="${HERDR_CONFIG_PATH:-/data/.config/herdr/config.toml}"
+
+    bashio::log.info "Setting up herdr..."
+
+    # herdr starts this in every pane. The first pane since the container
+    # started runs the launch command, like tmux's 'claude' session; the rest,
+    # and the first once that command exits, get bash. /tmp is per container,
+    # so a restart (which restores herdr's layout from /data) starts Claude again.
+    cat > "$herdr_shell" << 'SHELL_EOF'
+#!/bin/bash
+if mkdir "${HERDR_FIRST_PANE_LOCK:-/tmp/herdr-first-pane}" 2>/dev/null; then
+    # The login URL watcher reads this pane
+    printf '%s\n' "${HERDR_PANE_ID:-}" > "${HERDR_CLAUDE_PANE_FILE:-/tmp/herdr-claude-pane}"
+    cd "${CLAUDE_WORKDIR:-/config}" || true
+    eval "$CLAUDE_LAUNCH_CMD"
+fi
+exec bash
+SHELL_EOF
+    chmod +x "$herdr_shell"
+
+    # Written only when missing, so your edits survive restarts. Delete the
+    # file to get these defaults back.
+    if [ ! -f "$HERDR_CONFIG_PATH" ]; then
+        mkdir -p "$(dirname "$HERDR_CONFIG_PATH")"
+        cat > "$HERDR_CONFIG_PATH" << HERDR_EOF
+# Written once by the add-on and never overwritten: your edits are kept.
+# Delete this file and restart the add-on to get its defaults back.
+# Every setting: herdr --default-config
+onboarding = false
+
+[terminal]
+# Starts Claude (or the session picker) in the first pane, bash in the others
+default_shell = "${herdr_shell}"
+shell_mode = "non_login"
+# The browser terminal can't draw Kitty graphics; apps fall back to text
+kitty_graphics = false
+
+[session]
+# The first pane already starts Claude after a restart; resuming would add a second
+resume_agents_on_restore = false
+
+[update]
+# herdr is updated with the add-on
+version_check = false
+
+[ui.sound]
+# No speakers in a container
+enabled = false
+HERDR_EOF
+    fi
+
+    bashio::log.info "herdr configured (${HERDR_CONFIG_PATH})"
+}
+
 # Configure optional persistent Claude Code override in /data
 setup_persistent_claude() {
     local use_persistent_claude
@@ -1075,8 +1143,13 @@ start_web_terminal() {
     # Export launch command so the tmux-claude wrapper and session can access it
     export CLAUDE_LAUNCH_CMD="$launch_command"
 
+    local terminal_cmd="${TMUX_WRAPPER_PATH:-/usr/local/bin/tmux-claude}"
+    if [ "${MULTIPLEXER:-tmux}" = "herdr" ]; then
+        # herdr attaches to its running server or starts one, and the first
+        # pane runs the launch command (setup_herdr)
+        terminal_cmd="herdr"
     # Pre-create the persistent tmux session so the first browser connection is instant
-    if ! tmux has-session -t claude 2>/dev/null; then
+    elif ! tmux has-session -t claude 2>/dev/null; then
         bashio::log.info "Creating persistent tmux session 'claude'..."
         tmux new-session -d -s claude -c "$CLAUDE_WORKDIR" bash -c 'eval "$CLAUDE_LAUNCH_CMD"'
     else
@@ -1094,16 +1167,16 @@ start_web_terminal() {
         bashio::log.warning "Port 7681 is published: ttyd is reachable without a Home Assistant login"
     fi
 
-    # ttyd attaches every browser connection to the persistent tmux session.
-    # If Claude is running and you close the browser tab, it keeps running.
-    # Reopening the tab re-attaches to the same session.
+    # ttyd attaches every browser connection to the persistent tmux session
+    # (or herdr server). If Claude is running and you close the browser tab,
+    # it keeps running. Reopening the tab re-attaches to the same session.
     exec ttyd \
         --port "${port}" \
         --interface "${interface}" \
         --writable \
         --ping-interval 30 \
         --client-option reconnect=5 \
-        "${TMUX_WRAPPER_PATH:-/usr/local/bin/tmux-claude}"
+        "${terminal_cmd}"
 }
 
 # Run health check
@@ -1126,7 +1199,14 @@ main() {
     check_cpu_features
     clean_persistent_storage
     migrate_python_venv
-    setup_tmux
+    MULTIPLEXER=$(get_multiplexer)
+    export MULTIPLEXER
+    bashio::log.info "Terminal multiplexer: ${MULTIPLEXER}"
+    if [ "$MULTIPLEXER" = "herdr" ]; then
+        setup_herdr
+    else
+        setup_tmux
+    fi
     setup_persistent_claude
     setup_ha_plugin
     setup_session_picker

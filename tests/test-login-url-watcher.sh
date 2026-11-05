@@ -85,4 +85,17 @@ $(cat "$calls")
 expected:
 $expected"
 
+# multiplexer: herdr reads the pane herdr-claude-shell recorded
+herdr() {
+    [ "$*" = "pane read p_1 --source recent-unwrapped --lines 500" ] && cat "$pane"
+}
+HERDR_CLAUDE_PANE_FILE="$tmp_dir/pane-id"
+export MULTIPLEXER=herdr
+session_up && fail "herdr: no recorded pane means no session yet"
+echo p_1 > "$HERDR_CLAUDE_PANE_FILE"
+session_up || fail "herdr: a recorded pane means the session is up"
+printf ' %s\n\n' "$link" > "$pane"
+[ "$(extract_url)" = "$link" ] || fail "herdr: URL not read from the recorded pane: $(extract_url)"
+unset MULTIPLEXER
+
 echo "Login URL watcher regression suite passed"

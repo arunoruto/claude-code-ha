@@ -84,6 +84,14 @@ The add-on offers several configuration options:
 - `~/.tmux.conf` is rewritten from the add-on's options on every start, so edits there don't last. Put your settings in `~/.tmux.local.conf` (`/data/home/.tmux.local.conf`) instead: it's read last, so it wins over the add-on's defaults (including **tmux Mouse Mode**) and survives restarts and updates
 - Restart the add-on, or run `tmux source-file ~/.tmux.conf`, to apply a change
 
+### Terminal Multiplexer
+- **Default**: `tmux`
+- `herdr` swaps tmux for [herdr](https://herdr.dev): tabs, panes and workspaces you drive with the mouse (click to focus, drag borders, right-click menus), and a status dot on every pane running Claude (working, waiting for you, done)
+- The first pane runs Claude (or the session picker), like tmux's session; new tabs and panes open bash. Run `claude` in one for another agent
+- herdr keeps its layout in `/data`, so tabs and panes come back after a restart (as new shells; Claude starts again in the first one)
+- `/data/.config/herdr/config.toml` is written on the first start and then left alone, so your edits stay. Delete it and restart for the add-on's defaults. **tmux Mouse Mode** doesn't apply: herdr always handles the mouse, and drag-selecting copies
+- The prefix is `Ctrl+B`, as in tmux: `Ctrl+B q` detaches. Browser shortcuts (`Ctrl+W`, `Ctrl+T`) still belong to the browser
+
 ### New Line Without Sending
 - **Shift+Enter** starts a new line in Claude's prompt instead of sending it. The terminal types `\` + Enter for it, which Claude Code reads as a line break (and bash as a line continuation)
 - Claude's `/terminal-setup` isn't needed, and can't configure this browser terminal
@@ -219,6 +227,7 @@ init_commands:
 ```yaml
 auto_launch_claude: false
 tmux_mouse: false
+multiplexer: tmux
 dangerously_skip_permissions: true
 persistent_apk_packages:
   - python3
