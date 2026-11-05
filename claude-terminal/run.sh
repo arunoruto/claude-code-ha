@@ -514,7 +514,13 @@ if [ -z "${HERDR_SKIP_LAUNCH:-}" ] && mkdir "${HERDR_FIRST_PANE_LOCK:-/tmp/herdr
     # The login URL watcher reads this pane
     printf '%s\n' "${HERDR_PANE_ID:-}" > "${HERDR_CLAUDE_PANE_FILE:-/tmp/herdr-claude-pane}"
     cd "${CLAUDE_WORKDIR:-/config}" || true
+    # Job control, as in an interactive shell: each command gets its own
+    # foreground process group. herdr takes a pane whose foreground group is
+    # the pane shell's own for an idle shell, so without it Claude is never
+    # detected (no status dot, no resume).
+    set -m
     eval "$CLAUDE_LAUNCH_CMD"
+    set +m
 fi
 exec bash
 SHELL_EOF

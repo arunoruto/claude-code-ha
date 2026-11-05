@@ -121,6 +121,16 @@ launcher_env=(HERDR_FIRST_PANE_LOCK="$tmp_dir/first-pane" HERDR_CLAUDE_PANE_FILE
 [ -z "$(env "${launcher_env[@]}" bash "$HERDR_SHELL_PATH" < /dev/null)" ] || \
     fail "later herdr panes must open bash, not another launch"
 
+# herdr only sees an agent outside the pane shell's own foreground process
+# group, so the launch command must get its own, as in an interactive shell.
+# Needs a real terminal: script(1) provides one.
+if command -v script > /dev/null; then
+    rm -rf "$tmp_dir/first-pane"
+    out=$(env "${launcher_env[@]}" CLAUDE_LAUNCH_CMD='awk "{ print (\$1 == \$5 ? \"own-group\" : \"shell-group\") }" /proc/self/stat; exit 0' \
+        script -qec "bash $(printf '%q' "$HERDR_SHELL_PATH")" /dev/null < /dev/null 2>&1 | tr -d '\r')
+    [[ "$out" == *own-group* ]] || fail "the launch command must run in its own foreground process group: $out"
+fi
+
 # The frontend fix has to be reachable from the page that embeds ttyd.
 clipboard_bridge="$repo_root/claude-terminal/image-service/public/terminal-clipboard.js"
 terminal_page="$repo_root/claude-terminal/image-service/public/index.html"
